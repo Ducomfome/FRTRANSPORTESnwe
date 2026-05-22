@@ -192,7 +192,10 @@ export const dbService = {
 
   // Storage / Files
   async uploadFile(bucket: string, path: string, file: File) {
-    ensureConfigured();
+    if (!isSupabaseConfigured) {
+      console.log('Supabase não configurado. Utilizando fallback Base64...');
+      return this._fileToBase64(file);
+    }
     try {
       const { data, error } = await supabase.storage.from(bucket).upload(path, file, {
         upsert: true
@@ -206,20 +209,18 @@ export const dbService = {
       const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(path);
       return publicUrl;
     } catch (storageError: any) {
-      // Fallback robusto para Base64: converte o arquivo para data URL autossuficiente
       console.log('Utilizando fallback Base64 auto-armazenável...');
-      try {
-        const base64Data = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = (error) => reject(error);
-        });
-        return base64Data;
-      } catch (readError) {
-        throw new Error(`Erro na gravação original (${storageError.message || storageError}) e falha ao ler arquivo localmente.`);
-      }
+      return this._fileToBase64(file);
     }
+  },
+
+  async _fileToBase64(file: File): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
   },
 
   async deleteFile(bucket: string, path: string) {
@@ -305,22 +306,41 @@ export const dbService = {
 
   // Company Documents
   async getCompanyDocuments() {
+    const localDocs = this._getLocalDocuments();
     if (!isSupabaseConfigured) {
-      return this._getLocalDocuments();
+      return localDocs;
     }
     try {
       const { data, error } = await supabase.from('company_documents').select('*').order('created_at', { ascending: false });
       if (error) {
-        if (error.message.includes('relation "company_documents" does not exist') || error.code === 'PGRST116' || error.message.includes('not found')) {
+        const msg = error.message.toLowerCase();
+        if (
+          error.code === '42P01' || 
+          msg.includes('does not exist') || 
+          msg.includes('not found') || 
+          (msg.includes('relation') && msg.includes('company_documents')) ||
+          error.code === 'PGRST116'
+        ) {
           console.warn('Tabela company_documents não existe no Supabase. Usando armazenamento local.');
-          return this._getLocalDocuments();
+          return localDocs;
         }
         throw error;
       }
-      return data as CompanyDocument[];
+      
+      const supabaseDocs = (data || []) as CompanyDocument[];
+      // Merge local and supabase docs by ID, preferring supabase items
+      const mergedMap = new Map<string, CompanyDocument>();
+      localDocs.forEach(d => mergedMap.set(d.id, d));
+      supabaseDocs.forEach(d => mergedMap.set(d.id, d));
+      
+      const mergedList = Array.from(mergedMap.values());
+      // Sort descending by created_at
+      mergedList.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      
+      return mergedList;
     } catch (e) {
       console.warn('Erro ao carregar documentos do Supabase, caindo para local:', e);
-      return this._getLocalDocuments();
+      return localDocs;
     }
   },
 
@@ -336,8 +356,10 @@ export const dbService = {
       created_at: new Date().toISOString()
     };
 
+    // Always persist locally first so it will show up immediately
+    this._saveLocalDocument(newDoc);
+
     if (!isSupabaseConfigured) {
-      this._saveLocalDocument(newDoc);
       return newDoc;
     }
 
@@ -352,45 +374,38 @@ export const dbService = {
       }).select().single();
 
       if (error) {
-        if (error.message.includes('relation "company_documents" does not exist')) {
-          console.warn('Tabela company_documents inexistente ao adicionar. Salvando no local.');
-          this._saveLocalDocument(newDoc);
-          return newDoc;
-        }
-        throw error;
+        console.warn('Erro ao salvar no Supabase ao adicionar documento, mas já está persistido localmente:', error);
+        return newDoc;
       }
       return data as CompanyDocument;
     } catch (e) {
-      console.warn('Erro ao salvar documento no Supabase, usando local:', e);
-      this._saveLocalDocument(newDoc);
+      console.warn('Erro ao salvar documento no Supabase ao adicionar, mas já está persistido localmente:', e);
       return newDoc;
     }
   },
 
   _saveLocalDocument(doc: CompanyDocument) {
     const docs = this._getLocalDocuments();
-    docs.unshift(doc);
-    localStorage.setItem('company_documents', JSON.stringify(docs));
+    // Evita duplicar localmente
+    const filtered = docs.filter(d => d.id !== doc.id);
+    filtered.unshift(doc);
+    localStorage.setItem('company_documents', JSON.stringify(filtered));
   },
 
   async deleteCompanyDocument(id: string) {
+    // Always delete locally
+    this._deleteLocalDocument(id);
+    
     if (!isSupabaseConfigured) {
-      this._deleteLocalDocument(id);
       return;
     }
     try {
       const { error } = await supabase.from('company_documents').delete().eq('id', id);
       if (error) {
-        if (error.message.includes('relation "company_documents" does not exist')) {
-          this._deleteLocalDocument(id);
-          return;
-        }
-        throw error;
+        console.warn('Erro ao deletar no Supabase, mas já deletado localmente:', error);
       }
-      this._deleteLocalDocument(id); // Keep sync
     } catch (e) {
-      console.warn('Erro ao excluir no Supabase, excluindo local:', e);
-      this._deleteLocalDocument(id);
+      console.warn('Erro ao deletar no Supabase, mas já deletado localmente:', e);
     }
   },
 
