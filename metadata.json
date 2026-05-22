@@ -1,0 +1,8 @@
+{
+  "name": "FR TRANSPORTES - Gestão de Transportes",
+  "description": "Sistema completo para administração de frotas, fretes e financeiro para a FR TRANSPORTES.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

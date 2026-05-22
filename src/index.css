@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Outfit", "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", "Roboto Mono", monospace;
+  
+  --color-brand-primary: #1D4ED8; /* Royal Blue */
+  --color-brand-dark: #000000;    /* Pure Black */
+  
+  /* Map theme colors to CSS variables */
+  --color-brand-bg: var(--bg-color);
+  --color-brand-panel: var(--panel-color);
+  --color-brand-border: var(--border-color);
+  --color-brand-text: var(--text-color);
+  --color-brand-text-muted: var(--text-muted-color);
+  --color-brand-text-nav: #9CA3AF;
+  
+  --color-header-bg: var(--header-bg);
+  --color-table-header: var(--table-header-bg);
+}
+
+:root {
+  --bg-color: #F9FAFB;
+  --panel-color: #FFFFFF;
+  --border-color: #E5E7EB;
+  --text-color: #111827;
+  --text-muted-color: #6B7280;
+  --header-bg: #FFFFFF;
+  --table-header-bg: #F9FAFB;
+}
+
+.dark {
+  --bg-color: #000000;
+  --panel-color: #0A0A0A;
+  --border-color: #262626;
+  --text-color: #FFFFFF;
+  --text-muted-color: #A1A1AA;
+  --header-bg: #0A0A0A;
+  --table-header-bg: #111111;
+}
+
+@layer base {
+  body {
+    @apply bg-brand-bg text-brand-text font-sans transition-colors duration-200 antialiased selection:bg-brand-primary/30;
+  }
+
+  input, select, textarea {
+    @apply bg-brand-panel text-brand-text border border-brand-border focus:ring-2 focus:ring-brand-primary/10 focus:border-brand-primary outline-none transition-all rounded-sm px-3 py-2 text-sm;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-brand-panel border border-brand-border shadow-sm transition-all duration-200 rounded-lg overflow-hidden;
+  }
+  
+  .panel-header {
+    @apply px-5 py-3 border-b border-brand-border font-semibold text-[11px] uppercase tracking-wider text-brand-text-muted bg-table-header;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 bg-brand-dark text-white font-medium text-sm rounded shadow-sm hover:bg-brand-primary hover:text-black transition-all cursor-pointer flex items-center justify-center gap-2;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-brand-panel border border-brand-border text-brand-text font-medium text-sm rounded hover:bg-brand-bg transition-all cursor-pointer flex items-center justify-center gap-2;
+  }
+
+  .label-tech {
+    @apply text-[10px] font-bold uppercase tracking-widest text-brand-text-muted font-mono;
+  }
+
+  .data-cell {
+    @apply font-mono text-sm tracking-tight;
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  @apply w-1.5;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-gray-200 rounded-full hover:bg-gray-300;
+}
+
+/* Technical Data Grid Effects */
+.technical-grid {
+  background-size: 20px 20px;
+  background-image: linear-gradient(to right, #f3f4f6 1px, transparent 1px), linear-gradient(to bottom, #f3f4f6 1px, transparent 1px);
+}
